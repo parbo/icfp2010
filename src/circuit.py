@@ -20,18 +20,16 @@ class Gate(object):
 
     def __init__(self, iL, iR):
         self.leftix = None
-        self.leftconn = iL[:-1]
+        self.leftconn = iL[-1:]
         try: 
-            leftix = int(iL[:-1])
+            self.leftix = int(iL[:-1])
         except ValueError:
-            print iL
             pass
         self.rightix = None
-        self.rightconn = iR[:-1]
+        self.rightconn = iR[-1:]
         try: 
-            rightix = int(iR[:-1])
+            self.rightix = int(iR[:-1])
         except ValueError:
-            print iR
             pass
         self.left = 0
         self.right = 0
@@ -54,17 +52,21 @@ def calculate(gates, extin, extout, inp):
     for inval in inp:
         for i, g in enumerate(gates):
             try:
-                print g.leftix, g.leftconn
+#                print g.leftix, g.leftconn
                 lval = gates[g.leftix].getval(g.leftconn)
             except TypeError:
-                print "Foo"
                 lval = inval
+            except InvalidConnector:
+                print g.leftix, g.leftconn
+                raise
             try:
-                print g.rightix, g.rightconn
+#                print g.rightix, g.rightconn
                 rval = gates[g.rightix].getval(g.rightconn)
             except TypeError:
-                print "Bar"
                 rval = inval
+            except InvalidConnector:
+                print g.rightix, g.rightconn
+                raise
             g.calc(lval, rval)
         outp.append(gates[outix].getval(extconn))
     return outp
