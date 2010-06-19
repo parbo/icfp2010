@@ -90,6 +90,8 @@ public:
 	void eval(string& in, string& out);
 	void add_gate(int li_ix, char li_p, int ri_ix, char ri_p, int lo_ix, char lo_p, int ro_ix, char ro_p);
 	void set_external(int out_ix, char out_p, int in_ix, char in_p);
+	void print();
+	void print(int ix, char port);
 
 	gate_list gates;
 	int ext_in_ix;
@@ -151,6 +153,43 @@ void Circuit::set_external(int out_ix, char out_p, int in_ix, char in_p)
 	ext_out_port = out_p;
 }
 
+void Circuit::print()
+{
+	cout << ext_out_ix << ext_out_port << ":" << endl;
+
+	for(gate_list::iterator gate = gates.begin(); gate != gates.end(); ++gate)
+	{
+		print((*gate)->left_in_ix, (*gate)->left_in_port);
+		print((*gate)->right_in_ix, (*gate)->right_in_port);
+		cout << "0#";
+		print((*gate)->left_out_ix, (*gate)->left_out_port);
+		print((*gate)->right_out_ix, (*gate)->right_out_port);
+
+		if(gate + 1 != gates.end())
+		{
+			cout << ',';
+		}
+		else
+		{
+			cout << ':';
+		}
+
+		cout << endl;
+	}
+
+	cout << ext_in_ix << ext_in_port << endl;
+}
+
+void Circuit::print(int ix, char port)
+{
+	if(port != 'X')
+	{
+		cout << ix;
+	}
+
+	cout << port;
+}
+
 int main(int argc, char** argv)
 {
 	init_gate(gate);
@@ -163,7 +202,10 @@ int main(int argc, char** argv)
 	string out;
 	c.eval(in, out);
 
-	cout << out;
+	c.print();
+	cout << endl;
+	cout << in << endl;
+	cout << out << endl;
 
 	return 0;
 }
