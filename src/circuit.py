@@ -1,5 +1,7 @@
 import re 
 import sys
+from optparse import OptionParser
+import itertools
 
 gatetable={(0,0): (0,2),
            (0,1): (2,2),
@@ -13,76 +15,179 @@ gatetable={(0,0): (0,2),
 
 reqtable = dict(zip(gatetable.keys(), gatetable.values()))
 
+def getixconn(s):
+    conn = s[-1:]
+    try: 
+        ix = int(s[:-1])
+    except ValueError:
+        ix = None
+    return ix, conn
+
 def required(inp, outp):
     return [reqtable[i] for i in zip(inp, outp)]       
 
+def chain(length):
+    ret = ["0L:"]
+    for i in range(length):
+        if i == 0:
+            inp = "X%dR"%(length-1)
+        else:
+            inp = "%dL%dR"%(i-1, i-1)
+        
+        if i == length - 1:
+            outp = "X0R"
+        else:
+            outp = "%dL%dR"%(i+1, i+1)
+
+        ret.append(inp + "0#" + outp)
+    ret.append("%dL"%(length-1,))
+    return "\n".join(ret)
+
+def chain_2(length):
+    ret = ["0L:"]
+    for i in range(length):
+        if i == 0:
+            inp = "X0R"
+        else:
+            inp = "%dL%dR"%(i-1, i)
+        
+        if i == length - 1:
+            outp = "X0R"
+        else:
+            outp = "%dL%dR"%(i+1, i)
+
+        ret.append(inp + "0#" + outp)
+    ret.append("%dL"%(length-1,))
+    return "\n".join(ret)
+
+def chain_3(length):
+    ret = ["0L:"]
+    for i in range(length):
+        if i == 0:
+            inp = "X0L"
+        else:
+            inp = "%dR%dL"%(i-1, i)
+        
+        if i == length - 1:
+            outp = "0RX"
+        else:
+            outp = "%dR%dL"%(i, i+1)
+
+        ret.append(inp + "0#" + outp)
+    ret.append("%dR"%(length-1,))
+    return "\n".join(ret)
+
+def generate_circuit(numnodes, indata=None, outdata=None):
+    inputs = ["X"]
+    inputs.extend(["%dL"%i for i in range(numnodes)])
+    inputs.extend(["%dR"%i for i in range(numnodes)])
+    outputs = inputs[:]
+    permutations = itertools.permutations(outputs)       
+    variants = []
+    num = 0
+    for p in permutations:
+        gates = [] 
+        extin = None
+        extout = None
+        ok = True
+        gates = [Gate("", "", "", "") for i in range(numnodes)]
+        for o, i in zip(p, inputs):
+            if o == "X" and i == "X":
+                ok = False
+                break
+            
+            outix, outconn = getixconn(o)
+            inix, inconn = getixconn(i)
+#            print outix, outconn, inix, inconn
+
+            # Connect g[outix][outconn] -> g[inix][inconn]
+            if outix != None:
+                g = gates[outix]
+                if outconn == "L":
+#                    print "set left out on", outix, inix, inconn
+                    g.leftoutix = inix
+                    g.leftoutconn = inconn
+                elif outconn == "R":
+#                    print "set right out on ", outix, inix, inconn
+                    g.rightoutix = inix
+                    g.rightoutconn = inconn
+            if inix != None:
+                g = gates[inix]
+                if inconn == "L":
+#                    print "set left in on ", inix, outix, outconn
+                    g.leftinix = outix
+                    g.leftinconn = outconn
+                elif inconn == "R":
+#                    print "set right in on ", inix, outix, outconn
+                    g.rightinix = outix
+                    g.rightinconn = outconn
+
+            # Connect X -> g[inix][inconn]
+            if outix == None:
+                extin = "%d%s"%(inix, inconn)                      
+
+            # Connect g[outix][outconn] -> X
+            if inix == None:
+                extout = "%d%s"%(outix, outconn)
+            
+        if ok and indata != None:
+            # print "%s:"%extin
+            # gs = [str(g) for g in gates]
+            # s= ",\n".join(gs) + ":"
+            # print s
+            # print extout
+            # print
+
+            num += 1
+            if (num % 1000) == 0:
+                print num
+            out = calculate(gates, extin, extout, indata, False, outdata)
+            if out == outdata:
+                print "%s:"%extin
+                gs = [str(g) for g in gates]
+                s= ",\n".join(gs) + ":"
+                print s
+                print extout
+                print
+                return True
+    return False
+
 def check_block(inp, outp, level):    
-    if level > 100:
-        print "Bail!"
+    if level > 20:
+#        print "Bail!"
         return False, level
     if inp == outp:
-        print "OK!"
+#        print "OK!"
         return True, level
     else:
-        print "Nope..."
+#        print "Nope..."
         rightinp, rightoutp = zip(*required(inp, outp))
         ok, finlevel = check_block([0] + list(rightoutp[:-1]), rightinp, level + 1)
         if ok:
-            return finlevel
+            return True, finlevel
         rightinp, rightoutp = zip(*required(inp, outp))
         ok, finlevel = check_block(rightinp, [0] + list(rightoutp[:-1]), level + 1)
         if ok:
-            return finlevel
-
-inp, outp = zip(*[(0,1),
-                  (1,1),
-                  (2,0),
-                  (0,2),
-                  (2,1),
-                  (1,2),
-                  (0,1),
-                  (1,0),
-                  (2,1),
-                  (1,1),
-                  (0,2),
-                  (2,1),
-                  (0,0),
-                  (1,1),
-                  (2,2), 
-                  (0,2),
-                  (2,1)])
-
-#print check_block(inp, outp, 0)
+            return True, finlevel
+        rightinp, rightoutp = zip(*required(outp, inp))
+        ok, finlevel = check_block([0] + list(rightoutp[:-1]), rightinp, level + 1)
+        if ok:
+            return True, finlevel
+        rightinp, rightoutp = zip(*required(outp, inp))
+        ok, finlevel = check_block(rightinp, [0] + list(rightoutp[:-1]), level + 1)
+        if ok:
+            return True, finlevel
+        return False, level
 
 class InvalidConnector(Exception):
     pass
 
 class Gate(object):
     def __init__(self, iL, iR, oL, oR):
-        self.leftinix = None
-        self.leftinconn = iL[-1:]
-        try: 
-            self.leftinix = int(iL[:-1])
-        except ValueError:
-            pass
-        self.rightinix = None
-        self.rightinconn = iR[-1:]
-        try: 
-            self.rightinix = int(iR[:-1])
-        except ValueError:
-            pass
-        self.leftoutix = None
-        self.leftoutconn = oL[-1:]
-        try: 
-            self.leftoutix = int(oL[:-1])
-        except ValueError:
-            pass
-        self.rightoutix = None
-        self.rightoutconn = oR[-1:]
-        try: 
-            self.rightoutix = int(oR[:-1])
-        except ValueError:
-            pass
+        self.leftinix, self.leftinconn = getixconn(iL)
+        self.rightinix, self.rightinconn = getixconn(iR)
+        self.leftoutix, self.leftoutconn = getixconn(oL)
+        self.rightoutix, self.rightoutconn = getixconn(oR)
         self.left = 0
         self.right = 0
 
@@ -97,11 +202,34 @@ class Gate(object):
     def calc(self, left, right):
         self.left, self.right = gatetable[(left, right)]
 
-def calculate(gates, extin, extout, inp):
+    def __str__(self):
+        leftinp = "X"
+        if self.leftinix != None:
+            leftinp = "%d%s"%(self.leftinix, self.leftinconn)
+        rightinp = "X"
+        if self.rightinix != None:
+            rightinp = "%d%s"%(self.rightinix, self.rightinconn)
+        leftoutp = "X"
+        if self.leftoutix != None:
+            leftoutp = "%d%s"%(self.leftoutix, self.leftoutconn)
+        rightoutp = "X"
+        if self.rightoutix != None:
+            rightoutp = "%d%s"%(self.rightoutix, self.rightoutconn)
+        return leftinp + rightinp + "0#" + leftoutp + rightoutp
+        # return "'%s' '%s' '%s' '%s' '%s' '%s' '%s' '%s'"%(str(self.leftinix), str(self.leftinconn),
+        #                                                   str(self.rightinix), str(self.rightinconn),
+        #                                                   str(self.leftoutix), str(self.leftoutconn),
+        #                                                   str(self.rightoutix), str(self.rightoutconn
+                                                                                    # ))
+
+def calculate(gates, extin, extout, inp, step, wanted=[]):
     outp = []
     outix = int(extout[:-1])
     extconn = extout[-1:]
-    for inval in inp:
+    for s, inval in enumerate(inp):
+        if step:
+            print "Step:", s
+            print "In:", inval
         for i, g in enumerate(gates):
             try:
                 lval = gates[g.leftinix].getval(g.leftinconn)
@@ -115,8 +243,40 @@ def calculate(gates, extin, extout, inp):
             except TypeError:
                 rval = inval
             g.calc(lval, rval)
-        outp.append(gates[outix].getval(extconn))
+            if step:
+                print "Node %2d"%i, g.left, g.right
+        val = gates[outix].getval(extconn)
+        try:
+            if val != wanted[s]:
+                return
+        except IndexError:
+            pass
+        outp.append(val)
+        if step:
+            print "Out:", outp[-1]
+            print
+        if step:
+            raw_input("Enter to step..")
     return outp
+
+def spec_to_gates(spec):
+    connector = r"(X|\d+[R|L])"
+    gatetype = r"\d+#"
+    re_gate = re.compile(connector + connector + gatetype + connector + connector)
+    re_external_input = re.compile(connector + r":")
+    re_external_output = re.compile(connector + r"$")
+    gates = []
+    for line in spec.split():
+        m = re_gate.match(line)
+        if m:
+            gates.append(Gate(m.group(1), m.group(2), m.group(3), m.group(4)))
+        m = re_external_input.match(line)
+        if m:
+            extin = m.group(1)
+        m = re_external_output.match(line)
+        if m:
+            extout = m.group(1)
+    return gates, extin, extout
 
 def gates_to_dot(gates):
     r = ["digraph structs {"]
@@ -144,28 +304,64 @@ def gates_to_dot(gates):
     r.append("}")
     return "\n".join(r)
 
-def main(filename, inp):
-    c = open(filename).readlines()
-    connector = r"(X|\d+[R|L])"
-    gatetype = r"\d+#"
-    re_gate = re.compile(connector + connector + gatetype + connector + connector)
-    re_external_input = re.compile(connector + r":")
-    re_external_output = re.compile(connector + r"$")
-    gates = []
-    for line in c:
-        m = re_gate.match(line)
-        if m:
-            gates.append(Gate(m.group(1), m.group(2), m.group(3), m.group(4)))
-        m = re_external_input.match(line)
-        if m:
-            extin = m.group(1)
-        m = re_external_output.match(line)
-        if m:
-            extout = m.group(1)
+def main():
+    parser = OptionParser()
+    parser.add_option("-c", "--circuit", dest="circuit",
+                      help="Read circuit from FILE", metavar="FILE")
+    parser.add_option("-d", "--dot", dest="dotfile",
+                      help="Create dot-file FILE", metavar="FILE")
+    parser.add_option("-f", "--find", dest="find", action="store_true", default=False,
+                  help="Find solution")
+    parser.add_option("-i", "--input", dest="inputdata",
+                      help="Input data")
+    parser.add_option("-o", "--output", dest="outputdata",
+                      help="Output data")
+    parser.add_option("-s", "--step", dest="step", action="store_true", default=False,
+                      help="Step")
+    parser.add_option("-g", "--gen", dest="gen", action="store", type="int", default=0,
+                      help="Generate circuit")
+    (options, args) = parser.parse_args()    
 
-    print gates_to_dot(gates)
-    res = calculate(gates, extin, extout, inp)
-#    print res
+    if options.circuit:
+        c = open(options.circuit).read()
+        gates, extin, extout = spec_to_gates(c)
+        print calculate(gates, extin, extout, eval(options.inputdata), options.step)
+
+    # if options.genchain:
+    #     cache = set()
+    #     for i in range(1,options.genchain):
+    #         gates, extin, extout = spec_to_gates(chain_3(i))
+    #         ret = tuple(calculate(gates, extin, extout, eval(options.inputdata), options.step))
+    #         if options.outputdata:
+    #             if ret == tuple(options.outputdata):
+    #                 print "Success!"
+    #                 sys.exit(0)
+    #         if ret not in cache:
+    #             print i, ret
+    #             cache.add(ret)
+
+    if options.gen:
+        for i in range(1,options.gen+1):
+            print "trying", i
+            res = generate_circuit(i, eval(options.inputdata), eval(options.outputdata))
+            if res:
+                break
+            
+
+    # print zip(*required(eval(options.inputdata),
+    #                     eval(options.outputdata)))
+
+    if options.dotfile:
+        s = gates_to_dot(gates)
+        f = open(options.dotfile, "w")
+        f.write(s)
+        f.close()
+
+    if options.find:
+        res, level = check_block(eval(options.inputdata),
+                                 eval(options.outputdata),
+                                 0)
+        print res, level
 
 if __name__=="__main__":
-    main(sys.argv[1], eval(sys.argv[2]))
+    main()
