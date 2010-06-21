@@ -81,7 +81,9 @@ def generate_circuit(numnodes, indata=None, outdata=None):
     inputs = [(None, "X")]
     inputs.extend([(i, "L") for i in range(numnodes)])
     inputs.extend([(i, "R") for i in range(numnodes)])
-    outputs = inputs[:]
+    outputs = [(i, "L") for i in range(numnodes)]
+    outputs.extend([(i, "R") for i in range(numnodes)])
+    outputs.append((None, "X"))
     permutations = itertools.permutations(outputs)       
     num = 0
     gates = [Gate("", "", "", "") for i in range(numnodes)]
@@ -109,6 +111,9 @@ def generate_circuit(numnodes, indata=None, outdata=None):
                     g.rightoutconn = inconn
             if inix != None:
                 g = gates[inix]
+                # reset value of the gate
+                g.L = 0
+                g.R = 0
                 if inconn == "L":
 #                    print "set left in on ", inix, outix, outconn
                     g.leftinix = outix
@@ -135,7 +140,7 @@ def generate_circuit(numnodes, indata=None, outdata=None):
             # print
 
             num += 1
-            if (num % 1000) == 0:
+            if (num % 10000) == 0:
                 print num
             out = calculate(gates, extin, extout, indata, False, outdata)
             if out == outdata:
@@ -281,7 +286,7 @@ def gates_to_dot(gates):
         except TypeError:
             r.append("  node_%d:BL:s -> node_ext_in:in:n;"%(i,))
         try:
-            r.append("  node_%d:BR:s -> node_%d:T%s:n [weight=%f];"%(i, g.rightoutix, g.rightoutconn))
+            r.append("  node_%d:BR:s -> node_%d:T%s:n;"%(i, g.rightoutix, g.rightoutconn))
         except TypeError:
             r.append("  node_%d:BR:s -> node_ext_in:in:n;"%(i,))
         if g.leftinix == None:
@@ -329,8 +334,8 @@ def main():
     #             print i, ret
     #             cache.add(ret)
 
-    if options.gen:
-        for i in range(1,options.gen+1):
+    if options.gen:        
+        for i in range(options.gen, 1000):
             print "trying", i
             res = generate_circuit(i, eval(options.inputdata), eval(options.outputdata))
             if res:
