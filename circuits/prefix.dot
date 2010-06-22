@@ -1,0 +1,30 @@
+digraph structs {
+  node [shape=record];
+  node_ext_in [label="<in> in"];
+  node_ext_out [label="<out> out"];
+  node_0 [label="{{<TL>|<TR>}|0|{<BL>|<BR>}}"];
+  node_1 [label="{{<TL>|<TR>}|1|{<BL>|<BR>}}"];
+  node_2 [label="{{<TL>|<TR>}|2|{<BL>|<BR>}}"];
+  node_3 [label="{{<TL>|<TR>}|3|{<BL>|<BR>}}"];
+  node_4 [label="{{<TL>|<TR>}|4|{<BL>|<BR>}}"];
+  node_5 [label="{{<TL>|<TR>}|5|{<BL>|<BR>}}"];
+  node_0:BL:s -> node_5:TL:n;
+  node_0:BR:s -> node_1:TR:n;
+  node_1:BL:s -> node_0:TL:n;
+  node_1:BR:s -> node_3:TR:n;
+  node_2:BL:s -> node_1:TL:n;
+  node_2:BR:s -> node_4:TL:n;
+  node_3:BL:s -> node_0:TR:n;
+  node_3:BR:s -> node_2:TR:n;
+  node_4:BL:s -> node_5:TR:n;
+  node_4:BR:s -> node_3:TL:n;
+  node_ext_out:out:s -> node_4:TR:n;
+  node_5:BL:s -> node_ext_in:in:n;
+  node_5:BR:s -> node_2:TL:n;
+  subgraph g_0 { node_0; }
+  subgraph g_1 { node_1; }
+  subgraph g_2 { node_2; }
+  subgraph g_3 { node_3; }
+  subgraph g_4 { node_4; }
+  subgraph g_5 { node_5; }
+}
