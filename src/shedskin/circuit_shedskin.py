@@ -1,3 +1,4 @@
+import sys
 import itertools
 
 gatetable={(0,0): (0,2),
@@ -33,7 +34,7 @@ def generate_circuit(numnodes, indata, outdata):
         extout = (-1, "X")
         ok = True
         for ix in range(2*numnodes+1):
-            outix, outconn = outputs[ix]
+            outix, outconn = p[ix]
             inix, inconn = inputs[ix]
             if outix == -1 and inix == -1:
                 ok = False
@@ -43,11 +44,11 @@ def generate_circuit(numnodes, indata, outdata):
             if outix != -1:
                 g = gates[outix]
                 if outconn == "L":
-#                    print "set left out on", outix, inix, inconn
+                    #print "set left out on", outix, inix, inconn
                     g.leftoutix = inix
                     g.leftoutconn = inconn
                 elif outconn == "R":
-#                    print "set right out on ", outix, inix, inconn
+                    #print "set right out on ", outix, inix, inconn
                     g.rightoutix = inix
                     g.rightoutconn = inconn
             if inix != -1:
@@ -56,11 +57,11 @@ def generate_circuit(numnodes, indata, outdata):
                 g.L = 0
                 g.R = 0
                 if inconn == "L":
-#                    print "set left in on ", inix, outix, outconn
+                    #print "set left in on ", inix, outix, outconn
                     g.leftinix = outix
                     g.leftinconn = outconn
                 elif inconn == "R":
-#                    print "set right in on ", inix, outix, outconn
+                    #print "set right in on ", inix, outix, outconn
                     g.rightinix = outix
                     g.rightinconn = outconn
 
@@ -72,19 +73,13 @@ def generate_circuit(numnodes, indata, outdata):
             if inix == -1:
                 extout = (outix, outconn)
             
-        if ok:
-            # print "%s:"%extin
-            # gs = [str(g) for g in gates]
-            # s= ",\n".join(gs) + ":"
-            # print s
-            # print extout
-            # print
+        num += 1
+        if (num % 1000000) == 0:
+            print num
 
-            num += 1
-            if (num % 10000) == 0:
-                print num
-            out = calculate(gates, extin, extout, indata, outdata)
-            if out == outdata:
+        if ok:
+            res = calculate(gates, extin, extout, indata, outdata)
+            if res:
                 print
                 print "Solution for:"
                 print indata
@@ -136,17 +131,11 @@ class Gate(object):
         if self.rightoutix != -1:
             rightoutp = "%d%s"%(self.rightoutix, self.rightoutconn)
         return leftinp + rightinp + "0#" + leftoutp + rightoutp
-        # return "'%s' '%s' '%s' '%s' '%s' '%s' '%s' '%s'"%(str(self.leftinix), str(self.leftinconn),
-        #                                                   str(self.rightinix), str(self.rightinconn),
-        #                                                   str(self.leftoutix), str(self.leftoutconn),
-        #                                                   str(self.rightoutix), str(self.rightoutconn
-                                                                                    # ))
 
 def calculate(gates, extin, extout, inp, wanted):
-    outp = []
     outix, extconn = extout
     for s, inval in enumerate(inp):
-        for i, g in enumerate(gates):
+        for g in gates:
             if g.leftinix != -1:
                 lval = gates[g.leftinix].getval(g.leftinconn)
             else:
@@ -158,16 +147,16 @@ def calculate(gates, extin, extout, inp, wanted):
             g.calc(lval, rval)
         val = gates[outix].getval(extconn)
         if val != wanted[s]:
-            return
-        outp.append(val)
-    return outp
+            return False
+    return True
 
 def main():
-    for i in range(6, 1000):
-        print "trying", i
+    numnodes = int(sys.argv[1])
+    for i in range(numnodes, 1000):
+        print "Generating circuits with", i, "nodes.."
         res = generate_circuit(i, 
-                               [0,1,2,0,2,1,0,1,2,1,0,2,0,1,2,0,2],
-                               [1,1,0,2,1,2,1,0,1,1,2,1,0,1,2,2,1])
+                               [int(x) for x in sys.argv[2]],
+                               [int(x) for x in sys.argv[3]])
         if res:
             break
 
